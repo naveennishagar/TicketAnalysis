@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import io
 from data_processor import DataProcessor
 from visualizations import TicketVisualizer
+from database import DatabaseManager
 
 # Set page configuration
 st.set_page_config(
@@ -20,6 +21,9 @@ if 'data' not in st.session_state:
     st.session_state.data = None
 if 'processed_data' not in st.session_state:
     st.session_state.processed_data = None
+if 'db_manager' not in st.session_state:
+    st.session_state.db_manager = DatabaseManager()
+    st.session_state.db_manager.create_tables()
 
 def main():
     st.title("📊 Ticket Tracking Dashboard")
@@ -27,13 +31,41 @@ def main():
     
     # Sidebar for file upload and filters
     with st.sidebar:
-        st.header("📁 Data Upload")
+        st.header("📁 Data Management")
+        
+        # Database controls
+        st.subheader("Database Options")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Load from Database"):
+                with st.spinner("Loading data from database..."):
+                    db_data = st.session_state.db_manager.load_tickets_from_db()
+                    if not db_data.empty:
+                        st.session_state.data = db_data
+                        processor = DataProcessor()
+                        st.session_state.processed_data = processor.process_data(db_data)
+                        st.success("✅ Data loaded from database!")
+                        st.info(f"📈 Total records: {len(db_data)}")
+                    else:
+                        st.info("No data found in database.")
+        
+        with col2:
+            if st.button("Clear Database", type="secondary"):
+                if st.session_state.db_manager.clear_all_data():
+                    st.success("Database cleared!")
+                    st.session_state.data = None
+                    st.session_state.processed_data = None
+                    st.rerun()
+        
+        st.markdown("---")
         
         # File upload
+        st.subheader("Upload New Data")
         uploaded_file = st.file_uploader(
-            "Upload Excel file",
-            type=['xlsx', 'xls'],
-            help="Upload an Excel file with ticket data"
+            "Upload Excel/CSV file",
+            type=['xlsx', 'xls', 'csv'],
+            help="Upload an Excel or CSV file with ticket data"
         )
         
         if uploaded_file is not None:
@@ -41,19 +73,26 @@ def main():
                 # Process the uploaded file
                 with st.spinner("Processing file..."):
                     processor = DataProcessor()
-                    data = processor.load_excel_file(uploaded_file)
+                    if uploaded_file.name.endswith('.csv'):
+                        data = processor.load_csv_file(uploaded_file)
+                    else:
+                        data = processor.load_excel_file(uploaded_file)
                     
                     if data is not None:
-                        st.session_state.data = data
-                        st.session_state.processed_data = processor.process_data(data)
-                        st.success("✅ File uploaded and processed successfully!")
-                        st.info(f"📈 Total records: {len(data)}")
+                        # Save to database
+                        if st.session_state.db_manager.save_tickets_to_db(data):
+                            st.session_state.data = data
+                            st.session_state.processed_data = processor.process_data(data)
+                            st.success("✅ File uploaded and saved to database!")
+                            st.info(f"📈 Total records: {len(data)}")
+                        else:
+                            st.error("❌ Failed to save to database.")
                     else:
                         st.error("❌ Failed to process the file. Please check the file format.")
                         
             except Exception as e:
                 st.error(f"❌ Error processing file: {str(e)}")
-                st.info("Please ensure your Excel file has the expected column structure.")
+                st.info("Please ensure your file has the expected column structure.")
     
     # Main content area
     if st.session_state.data is not None and st.session_state.processed_data is not None:
@@ -63,17 +102,32 @@ def main():
 
 def display_welcome_message():
     """Display welcome message when no data is loaded"""
+    # Show database stats
+    db_stats = st.session_state.db_manager.get_ticket_stats()
+    
     st.markdown("""
     <div style="text-align: center; padding: 50px;">
         <h2>Welcome to the Ticket Tracking Dashboard</h2>
         <p style="font-size: 18px; color: #666;">
-            Please upload an Excel file using the sidebar to get started.
+            Upload new data or load existing data from the database.
         </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Database status
+    if db_stats['total'] > 0:
+        st.info(f"📊 Database contains {db_stats['total']} tickets ({db_stats['resolved']} resolved, {db_stats['pending']} pending)")
+        st.info("💡 Click 'Load from Database' in the sidebar to view your data.")
+    else:
+        st.info("📁 No data in database. Upload an Excel or CSV file to get started.")
+    
+    st.markdown("""
+    <div style="text-align: center; padding: 20px;">
         <p style="font-size: 14px; color: #888;">
-            The Excel file should contain ticket data with columns for:
-            <br>• Ticket ID, Status, Assigned User, Resolver
-            <br>• Created Date, Resolved Date, Company, Branch
-            <br>• Priority, Category, Description
+            Expected file columns:
+            <br>• Ticket ID, Current Status, AssignedTo, Requested Date
+            <br>• Company Name, Branch Name, Resolved By, Resolved Date
+            <br>• Subject, Description, Ticket Category
         </p>
     </div>
     """, unsafe_allow_html=True)

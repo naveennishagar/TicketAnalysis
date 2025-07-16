@@ -25,20 +25,31 @@ Preferred communication style: Simple, everyday language.
 - **File Handling**: Excel file upload and processing capabilities
 
 ### Data Storage
-- **Primary Storage**: In-memory storage using Pandas DataFrames
+- **Primary Storage**: PostgreSQL database with SQLAlchemy ORM
 - **Session Storage**: Streamlit session state for temporary data persistence
-- **File Format**: Excel (.xlsx, .xls) input files
+- **File Format**: Excel (.xlsx, .xls) and CSV (.csv) input files
+- **Database Schema**: Comprehensive ticket table with all data fields
 
 ## Key Components
 
+### Database Manager (`database.py`)
+- **Purpose**: Handles PostgreSQL database operations and data persistence
+- **Key Features**:
+  - SQLAlchemy ORM for database operations
+  - Ticket model with comprehensive schema
+  - Data saving and loading from database
+  - Database statistics and management
+- **Operations**: Create tables, save tickets, load tickets, clear data
+
 ### Data Processor (`data_processor.py`)
-- **Purpose**: Handles Excel file loading, validation, and data cleaning
+- **Purpose**: Handles Excel/CSV file loading, validation, and data cleaning
 - **Key Features**:
   - Column validation with flexible matching
   - Data type standardization
   - Error handling and user feedback
-- **Required Columns**: Ticket ID, Status, Assigned User, Created Date
-- **Optional Columns**: Resolver, Resolved Date, Company, Branch, Priority, Category, Description, Title
+  - Support for both Excel and CSV formats
+- **Required Columns**: Ticket ID, Current Status, AssignedTo, Requested Date
+- **Optional Columns**: Resolved By, Resolved Date, Company Name, Branch Name, Ticket Category, Subject, Description
 
 ### Ticket Visualizer (`visualizations.py`)
 - **Purpose**: Creates interactive charts and visualizations

@@ -22,27 +22,41 @@ class DataProcessor:
         try:
             # Read Excel file
             df = pd.read_excel(uploaded_file)
-            
-            # Basic validation
-            if df.empty:
-                st.error("❌ The uploaded file is empty.")
-                return None
-            
-            # Check for required columns (flexible matching)
-            missing_columns = self.validate_columns(df)
-            if missing_columns:
-                st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
-                st.info("Expected columns: " + ", ".join(self.required_columns))
-                return None
-            
-            # Clean and standardize the data
-            df = self.clean_data(df)
-            
-            return df
+            return self._process_uploaded_data(df)
             
         except Exception as e:
             st.error(f"❌ Error reading Excel file: {str(e)}")
             return None
+    
+    def load_csv_file(self, uploaded_file):
+        """Load and validate CSV file"""
+        try:
+            # Read CSV file
+            df = pd.read_csv(uploaded_file)
+            return self._process_uploaded_data(df)
+            
+        except Exception as e:
+            st.error(f"❌ Error reading CSV file: {str(e)}")
+            return None
+    
+    def _process_uploaded_data(self, df):
+        """Common processing logic for uploaded data"""
+        # Basic validation
+        if df.empty:
+            st.error("❌ The uploaded file is empty.")
+            return None
+        
+        # Check for required columns (flexible matching)
+        missing_columns = self.validate_columns(df)
+        if missing_columns:
+            st.error(f"❌ Missing required columns: {', '.join(missing_columns)}")
+            st.info("Expected columns: " + ", ".join(self.required_columns))
+            return None
+        
+        # Clean and standardize the data
+        df = self.clean_data(df)
+        
+        return df
     
     def validate_columns(self, df):
         """Validate that required columns exist (case-insensitive)"""
