@@ -111,11 +111,36 @@ class DataProcessor:
         df_clean = df_clean.rename(columns=column_mapping)
         
         # Clean date columns with specific format handling
-        date_columns = ['Created Date', 'Resolved Date']
+        date_columns = ['Created Date', 'Resolved Date', 'Assigned Date', 'Live Transferred Date']
         for date_col in date_columns:
             if date_col in df_clean.columns:
                 # Handle the specific date format from your CSV (e.g., "27-Mar-24 11:02:44 AM")
-                df_clean[date_col] = pd.to_datetime(df_clean[date_col], errors='coerce', dayfirst=True)
+                def parse_date(date_str):
+                    if pd.isna(date_str) or date_str == '' or str(date_str).strip() == '':
+                        return None
+                    try:
+                        # Try multiple date formats
+                        date_formats = [
+                            '%d-%b-%y %I:%M:%S %p',  # 27-Mar-24 11:02:44 AM
+                            '%d-%b-%Y %I:%M:%S %p',  # 27-Mar-2024 11:02:44 AM
+                            '%Y-%m-%d %H:%M:%S',     # 2024-03-27 11:02:44
+                            '%Y-%m-%d',              # 2024-03-27
+                            '%d-%m-%Y',              # 27-03-2024
+                            '%d/%m/%Y',              # 27/03/2024
+                        ]
+                        
+                        for fmt in date_formats:
+                            try:
+                                return pd.to_datetime(date_str, format=fmt)
+                            except:
+                                continue
+                        
+                        # If all formats fail, try generic parsing
+                        return pd.to_datetime(date_str, errors='coerce', dayfirst=True)
+                    except:
+                        return None
+                
+                df_clean[date_col] = df_clean[date_col].apply(parse_date)
         
         # Clean text columns
         text_columns = ['Status', 'Assigned User', 'Resolver', 'Company', 'Branch', 'Priority', 'Category']

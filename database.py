@@ -66,32 +66,57 @@ class DatabaseManager:
             
             # Convert DataFrame to database records
             for _, row in df.iterrows():
+                # Helper function to handle datetime conversion
+                def safe_datetime(value):
+                    if pd.isna(value) or value == '' or str(value).lower() == 'nat':
+                        return None
+                    try:
+                        dt = pd.to_datetime(value, errors='coerce')
+                        return dt if pd.notna(dt) else None
+                    except:
+                        return None
+                
+                # Helper function to handle string conversion
+                def safe_string(value):
+                    if pd.isna(value) or str(value).lower() == 'nan':
+                        return ''
+                    return str(value)
+                
+                # Helper function to handle integer conversion
+                def safe_int(value):
+                    if pd.isna(value) or value == '' or str(value).lower() == 'nan':
+                        return 0
+                    try:
+                        return int(float(value))
+                    except:
+                        return 0
+                
                 ticket = Ticket(
-                    ticket_id=str(row.get('Ticket ID', '')),
-                    requester=str(row.get('Requester', '')),
-                    created_user=str(row.get('Created User', '')),
-                    requested_date=pd.to_datetime(row.get('Created Date'), errors='coerce'),
-                    ticket_type=str(row.get('Ticket Type', '')),
-                    ticket_category=str(row.get('Category', '')),
-                    ticket_sub_category=str(row.get('Ticket Sub Category', '')),
-                    company_name=str(row.get('Company', '')),
-                    branch_name=str(row.get('Branch', '')),
-                    department_name=str(row.get('Department Name', '')),
-                    subject=str(row.get('Title', '')),
-                    description=str(row.get('Description', '')),
-                    current_status=str(row.get('Status', '')),
-                    assign_from=str(row.get('Assign From', '')),
-                    assigned_to=str(row.get('Assigned User', '')),
-                    assigned_date=pd.to_datetime(row.get('Assigned Date'), errors='coerce'),
-                    sla=str(row.get('SLA', '')),
-                    live_transferred_date=pd.to_datetime(row.get('Live Transferred Date'), errors='coerce'),
-                    is_re_submitted=str(row.get('Is Re-Submitted', '')),
-                    resolved_date=pd.to_datetime(row.get('Resolved Date'), errors='coerce'),
-                    no_of_days=int(row.get('No Of Days', 0)) if pd.notna(row.get('No Of Days')) else 0,
-                    no_of_working_days=int(row.get('No Of Working Days', 0)) if pd.notna(row.get('No Of Working Days')) else 0,
-                    resolved_by=str(row.get('Resolver', '')),
-                    last_comment=str(row.get('Last Comment', '')),
-                    last_remark=str(row.get('Last Remark', ''))
+                    ticket_id=safe_string(row.get('Ticket ID', '')),
+                    requester=safe_string(row.get('Requester', '')),
+                    created_user=safe_string(row.get('Created User', '')),
+                    requested_date=safe_datetime(row.get('Created Date')),
+                    ticket_type=safe_string(row.get('Ticket Type', '')),
+                    ticket_category=safe_string(row.get('Category', '')),
+                    ticket_sub_category=safe_string(row.get('Ticket Sub Category', '')),
+                    company_name=safe_string(row.get('Company', '')),
+                    branch_name=safe_string(row.get('Branch', '')),
+                    department_name=safe_string(row.get('Department Name', '')),
+                    subject=safe_string(row.get('Title', '')),
+                    description=safe_string(row.get('Description', '')),
+                    current_status=safe_string(row.get('Status', '')),
+                    assign_from=safe_string(row.get('Assign From', '')),
+                    assigned_to=safe_string(row.get('Assigned User', '')),
+                    assigned_date=safe_datetime(row.get('Assigned Date')),
+                    sla=safe_string(row.get('SLA', '')),
+                    live_transferred_date=safe_datetime(row.get('Live Transferred Date')),
+                    is_re_submitted=safe_string(row.get('Is Re-Submitted', '')),
+                    resolved_date=safe_datetime(row.get('Resolved Date')),
+                    no_of_days=safe_int(row.get('No Of Days', 0)),
+                    no_of_working_days=safe_int(row.get('No Of Working Days', 0)),
+                    resolved_by=safe_string(row.get('Resolver', '')),
+                    last_comment=safe_string(row.get('Last Comment', '')),
+                    last_remark=safe_string(row.get('Last Remark', ''))
                 )
                 session.add(ticket)
                 
