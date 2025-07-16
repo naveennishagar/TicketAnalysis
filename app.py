@@ -183,14 +183,16 @@ def display_metrics(data):
     
     with col2:
         if 'Status' in data.columns:
-            pending_tickets = len(data[data['Status'].isin(['Open', 'In Progress', 'Pending'])])
+            resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+            pending_tickets = len(data[~data['Status'].isin(resolved_statuses)])
             st.metric("Pending Tickets", pending_tickets)
         else:
             st.metric("Pending Tickets", "N/A")
     
     with col3:
         if 'Status' in data.columns:
-            resolved_tickets = len(data[data['Status'].isin(['Resolved', 'Closed', 'Completed'])])
+            resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+            resolved_tickets = len(data[data['Status'].isin(resolved_statuses)])
             st.metric("Resolved Tickets", resolved_tickets)
         else:
             st.metric("Resolved Tickets", "N/A")

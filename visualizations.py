@@ -113,11 +113,8 @@ class TicketVisualizer:
             return None
         
         # Get pending tickets
-        pending_statuses = ['Open', 'In Progress', 'Pending', 'New', 'Assigned', 'Active']
-        pending_tickets = self.data[
-            self.data['Status'].isin(pending_statuses) | 
-            ~self.data['Status'].isin(['Resolved', 'Closed', 'Completed', 'Done'])
-        ]
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        pending_tickets = self.data[~self.data['Status'].isin(resolved_statuses)]
         
         if pending_tickets.empty:
             return None
@@ -152,11 +149,8 @@ class TicketVisualizer:
             return None
         
         # Get pending tickets
-        pending_statuses = ['Open', 'In Progress', 'Pending', 'New', 'Assigned', 'Active']
-        pending_tickets = self.data[
-            self.data['Status'].isin(pending_statuses) | 
-            ~self.data['Status'].isin(['Resolved', 'Closed', 'Completed', 'Done'])
-        ]
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        pending_tickets = self.data[~self.data['Status'].isin(resolved_statuses)]
         
         if pending_tickets.empty:
             return None
@@ -189,7 +183,7 @@ class TicketVisualizer:
             return None
         
         # Get resolved tickets
-        resolved_statuses = ['Resolved', 'Closed', 'Completed', 'Done']
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
         resolved_tickets = self.data[self.data['Status'].isin(resolved_statuses)]
         
         if resolved_tickets.empty or resolved_tickets['Resolver'].isna().all():
@@ -226,7 +220,7 @@ class TicketVisualizer:
         
         # Get resolved tickets with both dates
         resolved_tickets = self.data[
-            (self.data['Status'].isin(['Resolved', 'Closed', 'Completed', 'Done'])) &
+            (self.data['Status'].isin(['Closed', 'Completed', 'Auto Completed'])) &
             (self.data['Created Date'].notna()) &
             (self.data['Resolved Date'].notna())
         ]
@@ -267,11 +261,8 @@ class TicketVisualizer:
             return pd.DataFrame()
         
         # Get pending tickets
-        pending_statuses = ['Open', 'In Progress', 'Pending', 'New', 'Assigned', 'Active']
-        pending_tickets = self.data[
-            self.data['Status'].isin(pending_statuses) | 
-            ~self.data['Status'].isin(['Resolved', 'Closed', 'Completed', 'Done'])
-        ]
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        pending_tickets = self.data[~self.data['Status'].isin(resolved_statuses)]
         
         if pending_tickets.empty:
             return pd.DataFrame()
@@ -307,7 +298,7 @@ class TicketVisualizer:
             return pd.DataFrame()
         
         # Get resolved tickets
-        resolved_statuses = ['Resolved', 'Closed', 'Completed', 'Done']
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
         resolved_tickets = self.data[self.data['Status'].isin(resolved_statuses)]
         
         if resolved_tickets.empty:

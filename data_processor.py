@@ -8,11 +8,13 @@ class DataProcessor:
     
     def __init__(self):
         self.required_columns = [
-            'Ticket ID', 'Status', 'Assigned User', 'Created Date'
+            'Ticket ID', 'Current Status', 'AssignedTo', 'Requested Date'
         ]
         self.optional_columns = [
-            'Resolver', 'Resolved Date', 'Company', 'Branch', 
-            'Priority', 'Category', 'Description', 'Title'
+            'Resolved By', 'Resolved Date', 'Company Name', 'Branch Name', 
+            'Ticket Category', 'Subject', 'Description', 'Requester',
+            'Created User', 'Ticket Type', 'Ticket Sub Category',
+            'Department Name', 'SLA', 'No Of Days', 'No Of Working Days'
         ]
     
     def load_excel_file(self, uploaded_file):
@@ -72,14 +74,34 @@ class DataProcessor:
             if opt_col.lower() in df_columns_lower:
                 column_mapping[df_columns_lower[opt_col.lower()]] = opt_col
         
+        # Map common column variations to standard names
+        column_variations = {
+            'Current Status': 'Status',
+            'AssignedTo': 'Assigned User',
+            'Requested Date': 'Created Date',
+            'Resolved By': 'Resolver',
+            'Company Name': 'Company',
+            'Branch Name': 'Branch',
+            'Ticket Category': 'Category',
+            'Subject': 'Title'
+        }
+        
+        # Apply column variations mapping
+        for old_name, new_name in column_variations.items():
+            if old_name in column_mapping.values():
+                # Find the actual column name that maps to old_name
+                actual_col = next(k for k, v in column_mapping.items() if v == old_name)
+                column_mapping[actual_col] = new_name
+        
         # Rename columns
         df_clean = df_clean.rename(columns=column_mapping)
         
-        # Clean date columns
+        # Clean date columns with specific format handling
         date_columns = ['Created Date', 'Resolved Date']
         for date_col in date_columns:
             if date_col in df_clean.columns:
-                df_clean[date_col] = pd.to_datetime(df_clean[date_col], errors='coerce')
+                # Handle the specific date format from your CSV (e.g., "27-Mar-24 11:02:44 AM")
+                df_clean[date_col] = pd.to_datetime(df_clean[date_col], errors='coerce', dayfirst=True)
         
         # Clean text columns
         text_columns = ['Status', 'Assigned User', 'Resolver', 'Company', 'Branch', 'Priority', 'Category']
@@ -116,9 +138,9 @@ class DataProcessor:
         if 'Status' not in df.columns:
             return pd.DataFrame()
         
-        pending_statuses = ['Open', 'In Progress', 'Pending', 'New', 'Assigned', 'Active']
-        pending_tickets = df[df['Status'].isin(pending_statuses) | 
-                           ~df['Status'].isin(['Resolved', 'Closed', 'Completed', 'Done'])]
+        # Based on your CSV, the non-resolved statuses include various active states
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        pending_tickets = df[~df['Status'].isin(resolved_statuses)]
         
         return pending_tickets
     
@@ -127,7 +149,7 @@ class DataProcessor:
         if 'Status' not in df.columns:
             return pd.DataFrame()
         
-        resolved_statuses = ['Resolved', 'Closed', 'Completed', 'Done']
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
         resolved_tickets = df[df['Status'].isin(resolved_statuses)]
         
         return resolved_tickets
