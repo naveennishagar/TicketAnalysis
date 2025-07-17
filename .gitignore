@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+tickets.db
+.venv/
+attached_assets/
+*.db

@@ -8,6 +8,19 @@ from data_processor import DataProcessor
 from visualizations import TicketVisualizer
 from database import DatabaseManager
 
+USERS = [
+    "Gayan Fernando",
+    "Dinesh Wickramasinghe",
+    "Nihal Rathnayake",
+    "Kavindu Dilshan",
+    "Imasha Pawan",
+    "Indika Gamage",
+    "Ruwan Karunachandra",
+    "Nadeesha Ranasinghe",
+    "Dimuthu Sandaruwan",
+    "Pramith Indunil"
+]
+
 # Set page configuration
 st.set_page_config(
     page_title="Ticket Tracking Dashboard",
@@ -16,22 +29,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize session state
-if 'data' not in st.session_state:
-    st.session_state.data = None
-if 'processed_data' not in st.session_state:
-    st.session_state.processed_data = None
-if 'db_manager' not in st.session_state:
-    st.session_state.db_manager = DatabaseManager()
-    st.session_state.db_manager.create_tables()
-
 def main():
-    st.title("📊 Ticket Tracking Dashboard")
+    if 'data' not in st.session_state:
+        st.session_state.data = None
+    if 'processed_data' not in st.session_state:
+        st.session_state.processed_data = None
+    if 'db_manager' not in st.session_state:
+        st.session_state.db_manager = DatabaseManager()
+        st.session_state.db_manager.create_tables()
+
+    st.title("Ticket Analysis by Browns Plantations - IT Department")
     st.markdown("---")
     
     # Sidebar for file upload and filters
     with st.sidebar:
-        st.header("📁 Data Management")
+        st.header("Data Management")
         
         # Database controls
         st.subheader("Database Options")
@@ -165,7 +177,7 @@ def display_dashboard():
         # Branch filter
         if 'Branch' in data.columns:
             branches = ['All'] + sorted(data['Branch'].dropna().unique().tolist())
-            selected_branch = st.selectbox("Select Branch", branches)
+            selected_branch = st.selectbox("Select Zone", branches)
         else:
             selected_branch = 'All'
         
@@ -190,7 +202,7 @@ def display_dashboard():
     display_metrics(filtered_data)
     
     # Create tabs for different views
-    tab1, tab2, tab3 = st.tabs(["📋 Overview", "⏳ Pending Tickets", "✅ Resolved Tickets"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Pending Tickets", "Resolved Tickets", "Resolver Analytics", "Assigned Analytics"])
     
     with tab1:
         display_overview(visualizer)
@@ -200,6 +212,12 @@ def display_dashboard():
     
     with tab3:
         display_resolved_tickets(visualizer)
+    
+    with tab4:
+        display_resolver_analytics(visualizer, filtered_data)
+    
+    with tab5:
+        display_assigned_analytics(visualizer, filtered_data)
 
 def apply_filters(data, date_range, company, branch, status):
     """Apply selected filters to the data"""
@@ -260,37 +278,37 @@ def display_metrics(data):
 
 def display_overview(visualizer):
     """Display overview charts and tables"""
-    st.header("📊 Overview")
+    st.header("Overview")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Tickets by Status")
-        status_chart = visualizer.create_status_distribution_chart()
-        if status_chart:
-            st.plotly_chart(status_chart, use_container_width=True)
+        st.subheader("Pending Tickets by Status")
+        pending_chart = visualizer.create_pending_status_pie()
+        if pending_chart:
+            st.plotly_chart(pending_chart, use_container_width=True, key="overview_pending_pie")
         else:
-            st.info("No status data available")
+            st.info("No pending tickets data available")
     
     with col2:
-        st.subheader("Tickets by Priority")
-        priority_chart = visualizer.create_priority_distribution_chart()
-        if priority_chart:
-            st.plotly_chart(priority_chart, use_container_width=True)
+        st.subheader("Resolved Tickets by Status")
+        resolved_chart = visualizer.create_resolved_status_pie()
+        if resolved_chart:
+            st.plotly_chart(resolved_chart, use_container_width=True, key="overview_resolved_pie")
         else:
-            st.info("No priority data available")
+            st.info("No resolved tickets data available")
     
-    # Timeline chart
-    st.subheader("📈 Ticket Creation Timeline")
-    timeline_chart = visualizer.create_timeline_chart()
-    if timeline_chart:
-        st.plotly_chart(timeline_chart, use_container_width=True)
+    # Daily tickets line chart
+    st.subheader("📈 Daily Tickets Analysis")
+    daily_chart = visualizer.create_daily_tickets_line_chart()
+    if daily_chart:
+        st.plotly_chart(daily_chart, use_container_width=True, key="overview_daily_line")
     else:
-        st.info("No date data available for timeline")
+        st.info("No date data available for daily analysis")
 
 def display_pending_tickets(visualizer):
     """Display pending tickets analysis"""
-    st.header("⏳ Pending Tickets Analysis")
+    st.header("Pending Tickets Analysis")
     
     col1, col2 = st.columns(2)
     
@@ -298,7 +316,7 @@ def display_pending_tickets(visualizer):
         st.subheader("Pending Tickets by Assigned User")
         pending_user_chart = visualizer.create_pending_by_user_chart()
         if pending_user_chart:
-            st.plotly_chart(pending_user_chart, use_container_width=True)
+            st.plotly_chart(pending_user_chart, use_container_width=True, key="pending_user_bar")
         else:
             st.info("No assigned user data available")
     
@@ -306,9 +324,17 @@ def display_pending_tickets(visualizer):
         st.subheader("Pending Tickets by Status")
         pending_status_chart = visualizer.create_pending_by_status_chart()
         if pending_status_chart:
-            st.plotly_chart(pending_status_chart, use_container_width=True)
+            st.plotly_chart(pending_status_chart, use_container_width=True, key="pending_status_pie")
         else:
             st.info("No pending tickets found")
+    
+    # Day-wise pending chart
+    st.subheader("📈 Day-wise Cumulative Pending Tickets")
+    day_wise_pending = visualizer.create_day_wise_pending_chart()
+    if day_wise_pending:
+        st.plotly_chart(day_wise_pending, use_container_width=True, key="pending_day_wise_line")
+    else:
+        st.info("No created date data available")
     
     # Pending tickets table
     st.subheader("📋 Pending Tickets Details")
@@ -320,7 +346,7 @@ def display_pending_tickets(visualizer):
 
 def display_resolved_tickets(visualizer):
     """Display resolved tickets analysis"""
-    st.header("✅ Resolved Tickets Analysis")
+    st.header("Resolved Tickets Analysis")
     
     col1, col2 = st.columns(2)
     
@@ -328,17 +354,25 @@ def display_resolved_tickets(visualizer):
         st.subheader("Resolved Tickets by Resolver")
         resolved_user_chart = visualizer.create_resolved_by_resolver_chart()
         if resolved_user_chart:
-            st.plotly_chart(resolved_user_chart, use_container_width=True)
+            st.plotly_chart(resolved_user_chart, use_container_width=True, key="resolved_user_bar")
         else:
             st.info("No resolver data available")
     
     with col2:
-        st.subheader("Resolution Time Distribution")
-        resolution_time_chart = visualizer.create_resolution_time_chart()
-        if resolution_time_chart:
-            st.plotly_chart(resolution_time_chart, use_container_width=True)
+        st.subheader("Resolved Tickets by Status")
+        resolved_status_chart = visualizer.create_resolved_status_pie()
+        if resolved_status_chart:
+            st.plotly_chart(resolved_status_chart, use_container_width=True, key="resolved_status_pie")
         else:
-            st.info("No resolution time data available")
+            st.info("No resolved status data available")
+    
+    # Day-wise resolved chart
+    st.subheader("📈 Day-wise Cumulative Resolved Tickets")
+    day_wise_chart = visualizer.create_day_wise_resolved_chart()
+    if day_wise_chart:
+        st.plotly_chart(day_wise_chart, use_container_width=True, key="resolved_day_wise_line")
+    else:
+        st.info("No resolved date data available")
     
     # Resolved tickets table
     st.subheader("📋 Resolved Tickets Details")
@@ -348,5 +382,62 @@ def display_resolved_tickets(visualizer):
     else:
         st.info("No resolved tickets found")
 
-if __name__ == "__main__":
-    main()
+def display_resolver_analytics(visualizer, data):
+    st.header("Resolver Personal Analytics")
+    resolvers = ['All'] + sorted(USERS)
+    selected_resolver = st.selectbox("Select Resolver", resolvers)
+    if selected_resolver != 'All':
+        filtered = data[data['Resolver'] == selected_resolver]
+        if not filtered.empty:
+            vis = TicketVisualizer(filtered)
+            display_metrics(filtered)
+            col1, col2 = st.columns(2)
+            with col1:
+                resolved_status_chart = vis.create_resolved_status_pie()
+                if resolved_status_chart:
+                    st.plotly_chart(resolved_status_chart, key="resolver_resolved_pie")
+            with col2:
+                resolved_chart = vis.create_daily_resolved_chart()
+                if resolved_chart:
+                    st.plotly_chart(resolved_chart, key="resolver_daily_resolved")
+            st.subheader("Resolved Tickets Details")
+            resolved_table = vis.get_resolved_tickets_table()
+            if not resolved_table.empty:
+                st.dataframe(resolved_table)
+            else:
+                st.info("No resolved tickets")
+        else:
+            st.info("No data for this resolver")
+    else:
+        st.info("Select a resolver to view analytics")
+
+def display_assigned_analytics(visualizer, data):
+    st.header("Assigned Member Personal Analytics")
+    assigned = ['All'] + sorted(USERS)
+    selected_assigned = st.selectbox("Select Assigned Member", assigned)
+    if selected_assigned != 'All':
+        filtered = data[data['Assigned User'] == selected_assigned]
+        if not filtered.empty:
+            vis = TicketVisualizer(filtered)
+            display_metrics(filtered)
+            col1, col2 = st.columns(2)
+            with col1:
+                assigned_chart = vis.create_daily_assigned_chart()
+                if assigned_chart:
+                    st.plotly_chart(assigned_chart, key="assigned_daily_assigned")
+            with col2:
+                pending_user_chart = vis.create_pending_by_status_chart()
+                if pending_user_chart:
+                    st.plotly_chart(pending_user_chart, key="assigned_pending_status_pie")
+            st.subheader("Pending Tickets Details")
+            pending_table = vis.get_pending_tickets_table()
+            if not pending_table.empty:
+                st.dataframe(pending_table)
+            else:
+                st.info("No pending tickets")
+        else:
+            st.info("No data for this assigned member")
+    else:
+        st.info("Select an assigned member to view analytics")
+
+main()

@@ -19,31 +19,69 @@ class TicketVisualizer:
         }
     
     def create_status_distribution_chart(self):
-        """Create a pie chart showing ticket distribution by status"""
+        """Create a pie chart showing distribution of pending and resolved tickets"""
         if 'Status' not in self.data.columns or self.data.empty:
             return None
-        
-        status_counts = self.data['Status'].value_counts()
-        
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+        counts = {
+            'Pending': len(self.data[~self.data['Status'].isin(resolved_statuses + ['Discard'])]),
+            'Resolved': len(self.data[self.data['Status'].isin(resolved_statuses)])
+        }
+        if counts['Pending'] + counts['Resolved'] == 0:
+            return None
+        fig = px.pie(names=counts.keys(), values=counts.values(), title="Pending vs Resolved Tickets")
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig.update_layout(height=400)
+        return fig
+    
+    def create_timeline_chart(self):
+        """Create a line chart showing daily ticket counts for the user"""
+        if 'Created Date' not in self.data.columns or self.data.empty:
+            return None
+        df = self.data.copy()
+        df['Date'] = pd.to_datetime(df['Created Date']).dt.date
+        daily_counts = df.groupby('Date').size().reset_index(name='Count')
+        daily_counts = daily_counts.sort_values('Date')
+        fig = px.line(daily_counts, x='Date', y='Count', title="Daily Ticket Creation", markers=True)
+        fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Number of Tickets")
+        return fig
+    
+    def create_pending_status_pie(self):
+        """Create a pie chart showing pending tickets distribution by status"""
+        if 'Status' not in self.data.columns or self.data.empty:
+            return None
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        pending_data = self.data[~self.data['Status'].isin(resolved_statuses)]
+        if pending_data.empty:
+            return None
+        status_counts = pending_data['Status'].value_counts()
         fig = px.pie(
             values=status_counts.values,
             names=status_counts.index,
-            title="Ticket Distribution by Status",
+            title="Pending Tickets by Status",
             color_discrete_sequence=px.colors.qualitative.Set3
         )
-        
-        fig.update_traces(
-            textposition='inside',
-            textinfo='percent+label',
-            hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>'
+        fig.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>')
+        fig.update_layout(height=400, showlegend=True)
+        return fig
+
+    def create_resolved_status_pie(self):
+        """Create a pie chart showing resolved tickets distribution by status"""
+        if 'Status' not in self.data.columns or self.data.empty:
+            return None
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+        resolved_data = self.data[self.data['Status'].isin(resolved_statuses)]
+        if resolved_data.empty:
+            return None
+        status_counts = resolved_data['Status'].value_counts()
+        fig = px.pie(
+            values=status_counts.values,
+            names=status_counts.index,
+            title="Resolved Tickets by Status",
+            color_discrete_sequence=px.colors.qualitative.Set2
         )
-        
-        fig.update_layout(
-            height=400,
-            showlegend=True,
-            legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.01)
-        )
-        
+        fig.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>')
+        fig.update_layout(height=400, showlegend=True)
         return fig
     
     def create_priority_distribution_chart(self):
@@ -75,34 +113,49 @@ class TicketVisualizer:
         
         return fig
     
-    def create_timeline_chart(self):
-        """Create a timeline chart showing ticket creation over time"""
-        if 'Created Date' not in self.data.columns or self.data.empty:
+    def create_daily_tickets_line_chart(self):
+        """Create a line chart showing daily total, resolved, and pending tickets"""
+        if 'Created Date' not in self.data.columns or 'Status' not in self.data.columns or self.data.empty:
             return None
         
-        # Group by date
-        timeline_data = self.data.groupby(self.data['Created Date'].dt.date).size().reset_index()
-        timeline_data.columns = ['Date', 'Count']
+        self.data['Date'] = pd.to_datetime(self.data['Created Date']).dt.date
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+        
+        daily_data = self.data.groupby('Date').agg(
+            total=('Ticket ID', 'count')
+        ).reset_index()
+        
+        daily_resolved = self.data[self.data['Status'].isin(resolved_statuses)].groupby('Date').agg(
+            resolved=('Ticket ID', 'count')
+        ).reset_index()
+        
+        daily_pending = self.data[~self.data['Status'].isin(resolved_statuses + ['Discard'])].groupby('Date').agg(
+            pending=('Ticket ID', 'count')
+        ).reset_index()
+        
+        daily_data = daily_data.merge(daily_resolved, on='Date', how='left').merge(daily_pending, on='Date', how='left').fillna(0)
+        daily_data = daily_data.sort_values('Date')
+        daily_data['Date Str'] = daily_data['Date'].astype(str)
         
         fig = px.line(
-            timeline_data,
-            x='Date',
-            y='Count',
-            title="Ticket Creation Timeline",
+            daily_data.melt(id_vars=['Date Str'], value_vars=['total', 'resolved', 'pending']),
+            x='Date Str',
+            y='value',
+            color='variable',
+            title="Daily Tickets: Total, Resolved, Pending",
             markers=True
         )
         
         fig.update_traces(
-            hovertemplate='<b>%{x}</b><br>Tickets Created: %{y}<extra></extra>',
-            line=dict(width=3),
-            marker=dict(size=8)
+            hovertemplate='<b>%{x}</b><br>%{data.name}: %{y}<extra></extra>'
         )
         
         fig.update_layout(
             height=400,
             xaxis_title="Date",
-            yaxis_title="Number of Tickets Created",
-            hovermode='x unified'
+            yaxis_title="Number of Tickets",
+            hovermode='x unified',
+            legend_title="Ticket Type"
         )
         
         return fig
@@ -275,14 +328,15 @@ class TicketVisualizer:
             display_columns.append('Status')
         if 'Assigned User' in pending_tickets.columns:
             display_columns.append('Assigned User')
+        if 'Assigned By' in pending_tickets.columns:
+            display_columns.append('Assigned By')
         if 'Priority' in pending_tickets.columns:
             display_columns.append('Priority')
         if 'Created Date' in pending_tickets.columns:
             display_columns.append('Created Date')
         if 'Company' in pending_tickets.columns:
             display_columns.append('Company')
-        if 'Branch' in pending_tickets.columns:
-            display_columns.append('Branch')
+        
         
         table_data = pending_tickets[display_columns].copy()
         
@@ -291,7 +345,111 @@ class TicketVisualizer:
             table_data['Created Date'] = pd.to_datetime(table_data['Created Date']).dt.strftime('%Y-%m-%d')
         
         return table_data
+
+    def create_day_wise_pending_chart(self):
+        """Create a simple line chart showing day-wise cumulative pending tickets"""
+        if 'Created Date' not in self.data.columns or self.data.empty:
+            return None
+        
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        pending_tickets = self.data[~self.data['Status'].isin(resolved_statuses)]
+        
+        if pending_tickets.empty:
+            return None
+        
+        pending_tickets['Created Date'] = pd.to_datetime(pending_tickets['Created Date'])
+        daily_pending = pending_tickets.groupby(pending_tickets['Created Date'].dt.date).size().reset_index()
+        daily_pending.columns = ['Date', 'Count']
+        daily_pending = daily_pending.sort_values('Date')
+        daily_pending['Cumulative'] = daily_pending['Count'].cumsum()
+        
+        fig = px.line(
+            daily_pending,
+            x='Date',
+            y='Cumulative',
+            title="Day-wise Cumulative Pending Tickets",
+            markers=True
+        )
+        
+        fig.update_traces(
+            hovertemplate='<b>%{x}</b><br>Cumulative Pending: %{y}<extra></extra>',
+            line=dict(width=3, color='red'),
+            marker=dict(size=8)
+        )
+        
+        fig.update_layout(
+            height=400,
+            xaxis_title="Date",
+            yaxis_title="Cumulative Pending Tickets",
+            hovermode='x unified'
+        )
+        
+        return fig
+
+    def create_day_wise_resolved_chart(self):
+        """Create a simple line chart showing day-wise cumulative resolved tickets"""
+        if 'Resolved Date' not in self.data.columns or self.data.empty:
+            return None
+        
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+        resolved_tickets = self.data[self.data['Status'].isin(resolved_statuses)]
+        
+        if resolved_tickets.empty:
+            return None
+        
+        resolved_tickets['Resolved Date'] = pd.to_datetime(resolved_tickets['Resolved Date'])
+        daily_resolved = resolved_tickets.groupby(resolved_tickets['Resolved Date'].dt.date).size().reset_index()
+        daily_resolved.columns = ['Date', 'Count']
+        daily_resolved = daily_resolved.sort_values('Date')
+        daily_resolved['Cumulative'] = daily_resolved['Count'].cumsum()
+        
+        fig = px.line(
+            daily_resolved,
+            x='Date',
+            y='Cumulative',
+            title="Day-wise Cumulative Resolved Tickets",
+            markers=True
+        )
+        
+        fig.update_traces(
+            hovertemplate='<b>%{x}</b><br>Cumulative Resolved: %{y}<extra></extra>',
+            line=dict(width=3),
+            marker=dict(size=8)
+        )
+        
+        fig.update_layout(
+            height=400,
+            xaxis_title="Date",
+            yaxis_title="Cumulative Resolved Tickets",
+            hovermode='x unified'
+        )
+        
+        return fig
     
+    def create_daily_resolved_chart(self):
+        """Create a line chart showing daily resolved ticket counts for the user"""
+        if 'Resolved Date' not in self.data.columns or self.data.empty:
+            return None
+        df = self.data.copy()
+        df['Date'] = pd.to_datetime(df['Resolved Date']).dt.date
+        daily_counts = df.groupby('Date').size().reset_index(name='Count')
+        daily_counts = daily_counts.sort_values('Date')
+        fig = px.line(daily_counts, x='Date', y='Count', title="Daily Ticket Resolved", markers=True)
+        fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Number of Tickets")
+        return fig
+
+    def create_daily_assigned_chart(self):
+        """Create a line chart showing daily assigned ticket counts for the user"""
+        if 'Created Date' not in self.data.columns or self.data.empty:
+            return None
+        df = self.data.copy()
+        df['Date'] = pd.to_datetime(df['Created Date']).dt.date
+        daily_counts = df.groupby('Date').size().reset_index(name='Count')
+        daily_counts = daily_counts.sort_values('Date')
+        fig = px.line(daily_counts, x='Date', y='Count', title="Daily Ticket Assigned", markers=True)
+        fig.update_layout(height=400, xaxis_title="Date", yaxis_title="Number of Tickets")
+        return fig
+
     def get_resolved_tickets_table(self):
         """Get a formatted table of resolved tickets"""
         if self.data.empty:
@@ -312,6 +470,8 @@ class TicketVisualizer:
             display_columns.append('Status')
         if 'Resolver' in resolved_tickets.columns:
             display_columns.append('Resolver')
+        if 'Assigned By' in resolved_tickets.columns:
+            display_columns.append('Assigned By')
         if 'Priority' in resolved_tickets.columns:
             display_columns.append('Priority')
         if 'Created Date' in resolved_tickets.columns:
@@ -320,8 +480,7 @@ class TicketVisualizer:
             display_columns.append('Resolved Date')
         if 'Company' in resolved_tickets.columns:
             display_columns.append('Company')
-        if 'Branch' in resolved_tickets.columns:
-            display_columns.append('Branch')
+        
         
         table_data = resolved_tickets[display_columns].copy()
         
