@@ -22,16 +22,15 @@ class TicketVisualizer:
         """Create a pie chart showing distribution of pending and resolved tickets"""
         if 'Status' not in self.data.columns or self.data.empty:
             return None
-        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Resolve']
         counts = {
             'Pending': len(self.data[~self.data['Status'].isin(resolved_statuses + ['Discard'])]),
             'Resolved': len(self.data[self.data['Status'].isin(resolved_statuses)])
         }
         if counts['Pending'] + counts['Resolved'] == 0:
             return None
-        fig = px.pie(names=counts.keys(), values=counts.values(), title="Pending vs Resolved Tickets")
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        fig.update_layout(height=400)
+        fig = px.pie(names=counts.keys(), values=counts.values(), title="Pending vs Resolved Tickets")    ;    fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig.update_layout(height=400, template="plotly_white", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
         return fig
     
     def create_timeline_chart(self):
@@ -50,7 +49,7 @@ class TicketVisualizer:
         """Create a pie chart showing pending tickets distribution by status"""
         if 'Status' not in self.data.columns or self.data.empty:
             return None
-        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard', 'Resolve']
         pending_data = self.data[~self.data['Status'].isin(resolved_statuses)]
         if pending_data.empty:
             return None
@@ -59,7 +58,8 @@ class TicketVisualizer:
             values=status_counts.values,
             names=status_counts.index,
             title="Pending Tickets by Status",
-            color_discrete_sequence=px.colors.qualitative.Set3
+            color_discrete_sequence=px.colors.qualitative.Set3,
+            hole=0.3
         )
         fig.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>')
         fig.update_layout(height=400, showlegend=True)
@@ -69,7 +69,7 @@ class TicketVisualizer:
         """Create a pie chart showing resolved tickets distribution by status"""
         if 'Status' not in self.data.columns or self.data.empty:
             return None
-        resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
+        resolved_statuses = ['Closed', 'Completed', 'Auto Completed','Resolve']
         resolved_data = self.data[self.data['Status'].isin(resolved_statuses)]
         if resolved_data.empty:
             return None
@@ -78,7 +78,8 @@ class TicketVisualizer:
             values=status_counts.values,
             names=status_counts.index,
             title="Resolved Tickets by Status",
-            color_discrete_sequence=px.colors.qualitative.Set2
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            hole=0.3
         )
         fig.update_traces(textposition='inside', textinfo='percent+label', hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percentage: %{percent}<extra></extra>')
         fig.update_layout(height=400, showlegend=True)
@@ -108,7 +109,8 @@ class TicketVisualizer:
             height=400,
             xaxis_title="Priority",
             yaxis_title="Number of Tickets",
-            showlegend=False
+            showlegend=False,
+            template="plotly_white"
         )
         
         return fig
@@ -155,7 +157,8 @@ class TicketVisualizer:
             xaxis_title="Date",
             yaxis_title="Number of Tickets",
             hovermode='x unified',
-            legend_title="Ticket Type"
+            legend_title="Ticket Type",
+            template="plotly_white"
         )
         
         return fig
@@ -191,7 +194,8 @@ class TicketVisualizer:
         fig.update_layout(
             height=max(400, len(user_counts) * 30),
             showlegend=False,
-            yaxis={'categoryorder': 'total ascending'}
+            yaxis={'categoryorder': 'total ascending'},
+            template="plotly_white"
         )
         
         return fig
@@ -491,3 +495,7 @@ class TicketVisualizer:
             table_data['Resolved Date'] = pd.to_datetime(table_data['Resolved Date']).dt.strftime('%Y-%m-%d')
         
         return table_data
+
+    def create_assigned_vs_resolved_chart(df: pd.DataFrame, person: str, start_date: str, end_date: str) -> go.Figure:
+        """Create a bar chart comparing assigned vs resolved tasks for a person in a date range."""
+        # function body

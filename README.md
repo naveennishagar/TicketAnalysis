@@ -92,7 +92,7 @@ Preferred communication style: Simple, everyday language.
 ## Deployment Strategy
 
 ### Development Environment
-- **Platform**: Replit-compatible Python environment
+- **Platform**: compatible Python environment
 - **Entry Point**: `app.py` serves as the main application file
 - **Dependencies**: Managed through requirements.txt or direct installation
 

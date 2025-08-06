@@ -2,11 +2,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import io
 from data_processor import DataProcessor
 from visualizations import TicketVisualizer
 from database import DatabaseManager
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 USERS = [
     "Gayan Fernando",
@@ -24,7 +26,7 @@ USERS = [
 # Set page configuration
 st.set_page_config(
     page_title="Ticket Tracking Dashboard",
-    page_icon="📊",
+    # page_icon="logo.svg",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -38,6 +40,7 @@ def main():
         st.session_state.db_manager = DatabaseManager()
         st.session_state.db_manager.create_tables()
 
+    # st.image('logo.svg', use_container_width=True)
     st.title("Ticket Analysis by Browns Plantations - IT Department")
     st.markdown("---")
     
@@ -151,7 +154,7 @@ def display_dashboard():
     
     # Sidebar filters
     with st.sidebar:
-        st.header("🔍 Filters")
+        st.header("🔍 Filters", divider="gray")
         
         # Date range filter
         if 'Created Date' in data.columns:
@@ -159,10 +162,11 @@ def display_dashboard():
             max_date = pd.to_datetime(data['Created Date']).max().date()
             
             date_range = st.date_input(
-                "Select Date Range",
+                "📅 Select Date Range",
                 value=(min_date, max_date),
                 min_value=min_date,
-                max_value=max_date
+                max_value=max_date,
+                help="Filter tickets by creation date"
             )
         else:
             date_range = None
@@ -170,26 +174,41 @@ def display_dashboard():
         # Company filter
         if 'Company' in data.columns:
             companies = ['All'] + sorted(data['Company'].dropna().unique().tolist())
-            selected_company = st.selectbox("Select Company", companies)
+            selected_company = st.selectbox("🏢 Select Company", companies, help="Filter by company name")
         else:
             selected_company = 'All'
         
         # Branch filter
         if 'Branch' in data.columns:
             branches = ['All'] + sorted(data['Branch'].dropna().unique().tolist())
-            selected_branch = st.selectbox("Select Zone", branches)
+            selected_branch = st.selectbox("📍 Select Zone", branches, help="Filter by branch or zone")
         else:
             selected_branch = 'All'
         
         # Status filter
         if 'Status' in data.columns:
             statuses = ['All'] + sorted(data['Status'].dropna().unique().tolist())
-            selected_status = st.selectbox("Select Status", statuses)
+            selected_status = st.selectbox("⚡ Select Status", statuses, help="Filter by ticket status")
         else:
             selected_status = 'All'
+        
+        # Combined User filter
+        users = ['All'] + [
+            "Gayan Fernando",
+            "Dinesh Wickramasinghe",
+            "Nihal Rathnayake",
+            "Kavindu Dilshan",
+            "Imasha Pawan",
+            "Indika Gamage",
+            "Ruwan Karunachandra",
+            "Nadeesha Ranasinghe",
+            "Dimuthu Sandaruwan",
+            "Pramith Indunil"
+        ]
+        selected_user = st.selectbox("👤 Select User", users, help="Filter by assigned user or resolver")
     
     # Apply filters
-    filtered_data = apply_filters(data, date_range, selected_company, selected_branch, selected_status)
+    filtered_data = apply_filters(data, date_range, selected_company, selected_branch, selected_status, selected_user)
     
     if filtered_data.empty:
         st.warning("⚠️ No data matches the selected filters.")
@@ -202,7 +221,7 @@ def display_dashboard():
     display_metrics(filtered_data)
     
     # Create tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Overview", "Pending Tickets", "Resolved Tickets", "Resolver Analytics", "Assigned Analytics"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Overview", "⏳ Pending Tickets", "✅ Resolved Tickets", "🔍 Resolver Analytics", "👥 Assigned Analytics"])
     
     with tab1:
         display_overview(visualizer)
@@ -219,7 +238,7 @@ def display_dashboard():
     with tab5:
         display_assigned_analytics(visualizer, filtered_data)
 
-def apply_filters(data, date_range, company, branch, status):
+def apply_filters(data, date_range, company, branch, status, user='All'):
     """Apply selected filters to the data"""
     filtered_data = data.copy()
     
@@ -243,6 +262,13 @@ def apply_filters(data, date_range, company, branch, status):
     if status != 'All' and 'Status' in data.columns:
         filtered_data = filtered_data[filtered_data['Status'] == status]
     
+    # Combined User filter
+    if user != 'All':
+        mask = (filtered_data['Assigned User'] == user)
+        if 'Resolver' in filtered_data.columns:
+            mask |= (filtered_data['Resolver'] == user)
+        filtered_data = filtered_data[mask]
+    
     return filtered_data
 
 def display_metrics(data):
@@ -251,13 +277,13 @@ def display_metrics(data):
     
     with col1:
         total_tickets = len(data)
-        st.metric("Total Tickets", total_tickets)
+        st.metric("📋 Total Tickets", total_tickets)
     
     with col2:
         if 'Status' in data.columns:
             resolved_statuses = ['Closed', 'Completed', 'Auto Completed', 'Discard']
             pending_tickets = len(data[~data['Status'].isin(resolved_statuses)])
-            st.metric("Pending Tickets", pending_tickets)
+            st.metric("⏳ Pending Tickets", pending_tickets)
         else:
             st.metric("Pending Tickets", "N/A")
     
@@ -265,14 +291,14 @@ def display_metrics(data):
         if 'Status' in data.columns:
             resolved_statuses = ['Closed', 'Completed', 'Auto Completed']
             resolved_tickets = len(data[data['Status'].isin(resolved_statuses)])
-            st.metric("Resolved Tickets", resolved_tickets)
+            st.metric("✅ Resolved Tickets", resolved_tickets)
         else:
             st.metric("Resolved Tickets", "N/A")
     
     with col4:
         if 'Status' in data.columns and len(data) > 0:
             resolution_rate = (resolved_tickets / total_tickets) * 100
-            st.metric("Resolution Rate", f"{resolution_rate:.1f}%")
+            st.metric("📈 Resolution Rate", f"{resolution_rate:.1f}%")
         else:
             st.metric("Resolution Rate", "N/A")
 
@@ -337,12 +363,12 @@ def display_pending_tickets(visualizer):
         st.info("No created date data available")
     
     # Pending tickets table
-    st.subheader("📋 Pending Tickets Details")
+    st.subheader("Pending Tickets Details")
     pending_table = visualizer.get_pending_tickets_table()
     if not pending_table.empty:
-        st.dataframe(pending_table, use_container_width=True)
+        st.dataframe(pending_table)
     else:
-        st.info("No pending tickets found")
+        st.info("No pending tickets")
 
 def display_resolved_tickets(visualizer):
     """Display resolved tickets analysis"""
@@ -375,12 +401,12 @@ def display_resolved_tickets(visualizer):
         st.info("No resolved date data available")
     
     # Resolved tickets table
-    st.subheader("📋 Resolved Tickets Details")
+    st.subheader("Resolved Tickets Details")
     resolved_table = visualizer.get_resolved_tickets_table()
     if not resolved_table.empty:
-        st.dataframe(resolved_table, use_container_width=True)
+        st.dataframe(resolved_table)
     else:
-        st.info("No resolved tickets found")
+        st.info("No resolved tickets")
 
 def display_resolver_analytics(visualizer, data):
     st.header("Resolver Personal Analytics")
